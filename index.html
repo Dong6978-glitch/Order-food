@@ -1,0 +1,767 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🍱 點餐團購系統 (記憶修復版)</title>
+    <!-- 使用高穩定度 Tailwind CSS v3 CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen p-4 md:p-8">
+
+    <div class="max-w-6xl mx-auto relative">
+        <!-- 點餐系統風格頭部 -->
+        <header class="text-center mb-8 bg-gradient-to-r from-teal-600 to-indigo-600 p-6 rounded-2xl text-white shadow-sm">
+            <h1 class="text-2xl md:text-3xl font-bold mb-2">
+                🍱 點餐團購系統 × <span id="header-merchant-name" class="text-amber-300">五十嵐</span>
+            </h1>
+            <p class="text-teal-100 text-sm">【記憶修復版】菜單與訂單皆已加入本地儲存，重新整理不再失效！</p>
+        </header>
+
+        <!-- 管理後台：編輯團購菜單 & 商家名稱 -->
+        <section class="mb-8 bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+            <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6 border-b border-slate-100 pb-4">
+                <div>
+                    <h2 class="text-lg font-bold text-slate-700">⚙️ 點餐菜單與商家管理</h2>
+                    <p class="text-xs text-slate-400">修改本次開團的「商家/餐廳名稱」，以及下方可點餐的品項。</p>
+                </div>
+                <div class="w-full md:w-72">
+                    <label class="block text-xs font-bold text-slate-500 mb-1">🏪 正在開團的商家名稱：</label>
+                    <input type="text" id="input-merchant-name" oninput="updateMerchantName(this.value)" class="w-full px-3 py-1.5 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 font-medium bg-slate-50" value="五十嵐" placeholder="例如：可不可熟成紅茶">
+                </div>
+            </div>
+
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-sm font-bold text-slate-500">📋 商品品項/菜單管理</h3>
+                <div class="flex gap-2">
+                    <button onclick="resetDefaultMenu()" class="bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-medium py-2 px-3 rounded-lg transition cursor-pointer">
+                        還原預設菜單
+                    </button>
+                    <button onclick="addNewProductRow()" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-medium py-2 px-4 rounded-lg transition cursor-pointer">
+                        ＋ 新增點餐品項
+                    </button>
+                </div>
+            </div>
+            
+            <!-- 編輯表格 -->
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse text-sm">
+                    <thead>
+                        <tr class="border-b border-slate-200 text-slate-400">
+                            <th class="py-2 px-3 w-24">商品編碼</th>
+                            <th class="py-2 px-3">餐點名稱</th>
+                            <th class="py-2 px-3 w-28">單價 ($)</th>
+                            <th class="py-2 px-3 w-20 text-center">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="admin-product-rows">
+                        <!-- 由 JS 動態渲染編輯欄位 -->
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- 點單與購物車主區域 -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
+            <!-- 左側：今日菜單 -->
+            <div class="lg:col-span-2 space-y-6">
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+                    <h2 class="text-xl font-bold mb-4 text-slate-700">🍕 今日點餐菜單</h2>
+                    <div id="product-list" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+                </div>
+            </div>
+
+            <!-- 右側：購物車 -->
+            <div class="space-y-6">
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 sticky top-8">
+                    <h2 class="text-xl font-bold mb-4 text-slate-700 flex items-center justify-between">
+                        <span>🛒 點餐統計</span>
+                        <span id="item-count" class="text-xs bg-slate-100 text-slate-600 px-2 py-1 rounded-full">0 項商品</span>
+                    </h2>
+                    <div id="cart-items" class="space-y-3 min-h-[100px] text-sm text-slate-400 max-h-[300px] overflow-y-auto mb-4 pr-1">
+                        <p class="text-center py-12">請點擊左側餐點加入清單</p>
+                    </div>
+                    <hr class="border-slate-100 my-4">
+                    <div class="space-y-4 mb-6">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-600 mb-1">點餐人姓名 / 暱稱 *</label>
+                            <input type="text" id="buyer-name" class="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500" placeholder="例：小明">
+                        </div>
+                    </div>
+                    <div class="space-y-2 bg-slate-50 p-4 rounded-xl text-sm mb-6 border border-slate-100">
+                        <div class="flex justify-between text-base font-bold text-teal-600">
+                            <span>應付總金額:</span>
+                            <span id="total-amount">$0</span>
+                        </div>
+                    </div>
+                    <button onclick="submitOrderToList()" class="w-full bg-teal-600 hover:bg-teal-700 text-white font-medium py-3 px-4 rounded-xl transition duration-200 shadow-sm cursor-pointer">
+                        送出此筆訂單並累加
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 中間：全員訂單大會整區塊 -->
+        <div id="result-section" class="mb-8 bg-white p-6 rounded-2xl shadow-sm border border-slate-100 hidden">
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
+                <div>
+                    <h3 class="text-lg font-bold text-teal-600">📋 全員點餐明細大會整（可刪除/管理）</h3>
+                </div>
+                <button onclick="copyToClipboard('order-text', '全員點餐明細文字已複製！')" class="w-full sm:w-auto bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-medium py-2 px-5 rounded-lg transition cursor-pointer">
+                    一鍵複製全員明細
+                </button>
+            </div>
+            <div class="mb-6 overflow-x-auto">
+                <table class="w-full text-left text-sm border border-slate-100 rounded-xl overflow-hidden">
+                    <thead class="bg-slate-50 text-slate-500">
+                        <tr>
+                            <th class="py-2.5 px-4 font-medium w-32">點餐人</th>
+                            <th class="py-2.5 px-4 font-medium">點餐細項</th>
+                            <th class="py-2.5 px-4 font-medium w-24 text-center">總件數</th>
+                            <th class="py-2.5 px-4 font-medium w-24 text-right">小計</th>
+                            <th class="py-2.5 px-4 font-medium w-20 text-center">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="visual-order-list" class="divide-y divide-slate-100"></tbody>
+                </table>
+            </div>
+            <div class="mt-4">
+                <label class="block text-xs font-bold text-slate-400 mb-1">📢 通訊群組核對專用格式：</label>
+                <textarea id="order-text" rows="8" class="w-full p-4 bg-slate-50 rounded-xl font-mono text-xs border border-slate-200 focus:outline-none" readonly></textarea>
+            </div>
+        </div>
+
+        <!-- 底部：團購主大總表 + 【收款碼展示牆】區域 -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- 左側：團購主大總表 & 二維碼上傳後台 -->
+            <div class="lg:col-span-2 space-y-8">
+                <!-- 數據總表 -->
+                <section class="bg-slate-900 text-slate-100 p-6 rounded-2xl shadow-md border border-slate-800">
+                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 border-b border-slate-800 pb-4">
+                        <div>
+                            <h2 class="text-xl font-bold text-amber-400 flex items-center gap-2">📊 📥 團購主即時累加總統計表</h2>
+                        </div>
+                        <div class="flex gap-2 w-full sm:w-auto">
+                            <button onclick="copySummaryText()" class="flex-1 sm:flex-none bg-amber-500 hover:bg-amber-600 text-slate-900 text-xs font-bold py-2 px-4 rounded-lg transition cursor-pointer">
+                                📋 複製廠商向叫餐總文字
+                            </button>
+                            <button onclick="clearAllOrders()" class="bg-rose-600 hover:bg-rose-700 text-white text-xs font-medium py-2 px-3 rounded-lg transition cursor-pointer">
+                                重設整團
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-3 gap-4 mb-6">
+                        <div class="bg-slate-800 p-4 rounded-xl text-center border border-slate-700">
+                            <p class="text-xs text-slate-400">目前總訂單數</p>
+                            <p id="summary-orders-count" class="text-xl font-bold text-white mt-1">0 筆</p>
+                        </div>
+                        <div class="bg-slate-800 p-4 rounded-xl text-center border border-slate-700">
+                            <p class="text-xs text-slate-400">全團商品總件數</p>
+                            <p id="summary-items-count" class="text-xl font-bold text-teal-400 mt-1">0 件</p>
+                        </div>
+                        <div class="bg-slate-800 p-4 rounded-xl text-center border border-slate-700">
+                            <p class="text-xs text-slate-400">目前全團總金額</p>
+                            <p id="summary-total-money" class="text-xl font-bold text-amber-400 mt-1">$0</p>
+                        </div>
+                    </div>
+
+                    <!-- 人員名單顯示區 -->
+                    <div class="mb-6 bg-slate-800/50 p-3 rounded-xl border border-slate-800">
+                        <p class="text-xs text-slate-400 font-bold mb-2">👤 已登記點餐人員名單：</p>
+                        <div id="summary-buyer-list" class="flex flex-wrap gap-2 text-xs">
+// =========================================================
+        // ⚠️ 已經幫你設定好你專屬的雲端金鑰囉！
+        // =========================================================
+        const firebaseConfig = {
+            apiKey: "AIzaSyB3BkjpzuMTF212w1YPcgRoje_cpIwX-hA",
+            authDomain: "office-order-system.firebaseapp.com",
+            databaseURL: "https://office-order-system-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "office-order-system",
+            storageBucket: "office-order-system.firebasestorage.app",
+            messagingSenderId: "469690745615",
+            appId: "1:469690745615:web:ffeb371929e8a340c6747a"
+        };
+        
+        // 初始化 Firebase
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+                            <!-- 由 JS 動態渲染 -->
+                        </div>
+                    </div>
+
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-sm">
+                            <thead>
+                                <tr class="border-b border-slate-800 text-slate-400 font-medium">
+                                    <th class="py-2 px-3 w-24">商品編碼</th>
+                                    <th class="py-2 px-3">餐點名稱</th>
+                                    <th class="py-2 px-3 text-center w-28">當前總件數</th>
+                                    <th class="py-2 px-3 text-right w-28">當前總金額</th>
+                                </tr>
+                            </thead>
+                            <tbody id="summary-table-rows" class="divide-y divide-slate-800/50"></tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <!-- 二維碼後台管理發佈台 -->
+                <section class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+                    <div class="mb-4">
+                        <h3 class="text-lg font-bold text-slate-700">⚙️ 團購主收款二維碼管理後台</h3>
+                        <p class="text-xs text-slate-400">在此上傳收款碼，儲存後會自動清空輸入框並同步顯示到右側看板！</p>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+                        <!-- 發佈表單區 -->
+                        <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3">
+                            <div>
+                                <label class="block text-[11px] font-bold text-slate-500 mb-1">管道名稱 :</label>
+                                <input type="text" id="draft-qr-name" class="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded focus:ring-1 focus:ring-teal-500 font-medium text-slate-700" placeholder="例如：主揪小明 (LINE Pay)">
+                            </div>
+                            
+                            <input type="file" id="draft-file-input" accept="image/*" class="hidden" onchange="handleDraftFile(this)">
+                            
+                            <div id="draft-dropzone" class="min-h-[140px] border-2 border-dashed border-slate-300 hover:border-teal-400 bg-white rounded-lg p-3 flex flex-col justify-center items-center text-center cursor-pointer relative transition"
+                                 onclick="document.getElementById('draft-file-input').click()"
+                                 ondragover="handleInlineDragOver(event, this)"
+                                 ondragleave="handleInlineDragLeave(event, this)"
+                                 ondrop="handleInlineDrop(event, this)">
+                                <!-- 內容由 JS 渲染 -->
+                            </div>
+
+                            <button type="button" onclick="saveDraftQr()" class="w-full bg-emerald-600 text-white hover:bg-emerald-700 text-xs font-bold py-2.5 px-4 rounded-lg transition shadow-sm cursor-pointer">
+                                💾 發佈至看板 (並自動清空)
+                            </button>
+                        </div>
+
+                        <!-- 已儲存的清單區 -->
+                        <div class="bg-white rounded-xl border border-slate-100 h-full">
+                            <h4 class="text-xs font-bold text-slate-500 p-3 border-b border-slate-100 bg-slate-50 rounded-t-xl">📂 系統已發佈的收款碼：</h4>
+                            <div id="saved-qr-list" class="p-3 space-y-2 max-h-[220px] overflow-y-auto">
+                                <!-- 由 JS 動態渲染已存清單 -->
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </div>
+
+            <!-- 右側：全員公開二維碼收款牆展示看板 -->
+            <div>
+                <section class="bg-gradient-to-b from-indigo-50 to-white p-6 rounded-2xl shadow-md border border-indigo-100 h-full flex flex-col">
+                    <div class="mb-4 text-center border-b border-indigo-100 pb-3">
+                        <h3 class="text-xl font-bold text-indigo-900 flex items-center justify-center gap-2">
+                            📱 全員收款 QR Code 看板
+                        </h3>
+                        <p class="text-[11px] text-indigo-500 mt-1">請同事確認點餐金額後，直接掃瞄下方條碼完成付款</p>
+                        <p class="text-[10px] bg-indigo-100 text-indigo-600 inline-block px-2 py-0.5 rounded-full mt-2 font-bold">💡 點擊圖片即可全螢幕放大</p>
+                    </div>
+                    
+                    <div id="qr-showcase-display-wall" class="space-y-6 flex-1 overflow-y-auto max-h-[600px] pr-1">
+                        <!-- 由 JS 動態渲染看板 -->
+                    </div>
+                </section>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- 🌟圖片點擊全螢幕放大預覽 Modal -->
+    <div id="image-modal" class="fixed inset-0 bg-slate-900/90 hidden z-50 flex items-center justify-center p-4 transition-opacity backdrop-blur-sm cursor-zoom-out" onclick="closeImageModal()">
+        <div class="relative max-w-2xl w-full flex justify-center flex-col items-center">
+            <button type="button" class="absolute -top-12 right-0 text-white/50 hover:text-white text-4xl font-bold transition cursor-pointer" onclick="closeImageModal()">×</button>
+            <img id="enlarged-image" class="max-w-full max-h-[80vh] rounded-2xl shadow-2xl object-contain border-4 border-white/10" src="" alt="放大版二維碼">
+            <p class="text-white/60 text-xs font-bold tracking-widest mt-6 pointer-events-none bg-black/40 px-4 py-2 rounded-full">點擊畫面任意處即可關閉</p>
+        </div>
+    </div>
+
+    <script>
+        // 全局基本資料與預設菜單
+        let merchantName = "五十嵐"; 
+        let products = [];
+        const defaultProducts = [
+            { id: "A1", name: "爆漿黑糖珍珠鮮奶", price: 75 },
+            { id: "A2", name: "微燻四季春青茶", price: 45 },
+            { id: "B1", name: "經典起司招牌脆皮蛋餅", price: 55 },
+            { id: "B2", name: "美式煙燻牛肉可頌", price: 85 }
+        ];
+        let cart = [];             
+        let allSubmittedOrders = []; 
+        let qrCollectors = [];
+        let draftQrImg = "";
+
+        // 頁面初始化載入
+        window.onload = function() {
+            window.addEventListener("dragover", function(e) { e.preventDefault(); }, false);
+            window.addEventListener("drop", function(e) { e.preventDefault(); }, false);
+
+            // 1. 讀取商家名稱
+            const savedMerchant = localStorage.getItem('office_groupbuy_merchant');
+            if (savedMerchant) {
+                merchantName = savedMerchant;
+                document.getElementById('input-merchant-name').value = merchantName;
+                document.getElementById('header-merchant-name').innerText = merchantName;
+            }
+
+            // 2. 讀取商品菜單快取
+            const savedProducts = localStorage.getItem('office_groupbuy_products');
+            if (savedProducts) {
+                try { products = JSON.parse(savedProducts); } catch(e) { products = [...defaultProducts]; }
+            } else {
+                products = [...defaultProducts];
+                saveProductsToStorage();
+            }
+
+            // 3. 讀取已送出的訂單紀錄
+            const savedOrders = localStorage.getItem('office_groupbuy_orders');
+            if (savedOrders) {
+                try { allSubmittedOrders = JSON.parse(savedOrders); } catch(e) { allSubmittedOrders = []; }
+            }
+
+            loadQrCollectorsFromStorage(); 
+            renderAdminTable();
+            renderUserMenu();
+            updateAllSubmittedViews();
+            
+            renderQrUploadForm();
+            renderSavedQrList();
+            renderQrShowcaseWall();
+        };
+
+        // 儲存功能函式組
+        function saveProductsToStorage() {
+            localStorage.setItem('office_groupbuy_products', JSON.stringify(products));
+        }
+
+        function saveOrdersToStorage() {
+            localStorage.setItem('office_groupbuy_orders', JSON.stringify(allSubmittedOrders));
+        }
+
+        function openImageModal(imgSrc) {
+            const modal = document.getElementById('image-modal');
+            const img = document.getElementById('enlarged-image');
+            img.src = imgSrc;
+            modal.classList.remove('hidden');
+            document.body.style.overflow = 'hidden'; 
+        }
+
+        function closeImageModal() {
+            const modal = document.getElementById('image-modal');
+            modal.classList.add('hidden');
+            setTimeout(() => { document.getElementById('enlarged-image').src = ""; }, 200);
+            document.body.style.overflow = ''; 
+        }
+
+        function loadQrCollectorsFromStorage() {
+            const savedData = localStorage.getItem('office_groupbuy_qrs');
+            if (savedData) {
+                try { qrCollectors = JSON.parse(savedData); } catch(e) { qrCollectors = []; }
+            }
+        }
+
+        function saveQrCollectorsToStorage() {
+            localStorage.setItem('office_groupbuy_qrs', JSON.stringify(qrCollectors));
+        }
+
+        function updateMerchantName(newName) {
+            merchantName = newName.trim() || "未命名商家";
+            document.getElementById('header-merchant-name').innerText = merchantName;
+            localStorage.setItem('office_groupbuy_merchant', merchantName);
+            generateAllOrdersText();
+        }
+
+        function renderAdminTable() {
+            const container = document.getElementById('admin-product-rows');
+            if(!container) return;
+            container.innerHTML = products.map((p, index) => `
+                <tr class="border-b border-slate-100">
+                    <td class="py-2 px-1"><input type="text" value="${p.id}" onchange="updateProduct(${index}, 'id', this.value)" class="w-full p-1 border border-slate-200 rounded text-center font-mono text-xs"></td>
+                    <td class="py-2 px-1"><input type="text" value="${p.name}" onchange="updateProduct(${index}, 'name', this.value)" class="w-full p-1 border border-slate-200 rounded text-xs"></td>
+                    <td class="py-2 px-1"><input type="number" value="${p.price}" onchange="updateProduct(${index}, 'price', this.value)" class="w-full p-1 border border-slate-200 rounded text-xs"></td>
+                    <td class="py-2 px-1 text-center"><button onclick="deleteProduct(${index})" class="text-rose-500 hover:text-rose-700 text-xs font-medium cursor-pointer">刪除</button></td>
+                </tr>
+            `).join('');
+        }
+
+        function updateProduct(index, field, value) {
+            if (field === 'price') products[index][field] = Number(value) || 0;
+            else products[index][field] = value.trim();
+            saveProductsToStorage(); // 同步硬碟
+            renderUserMenu(); updateCartUI(); updateAllSubmittedViews();
+        }
+
+        function addNewProductRow() {
+            products.push({ id: `N${products.length + 1}`, name: "新餐點名稱", price: 50 });
+            saveProductsToStorage(); // 同步硬碟
+            renderAdminTable(); renderUserMenu(); updateAllSubmittedViews();
+        }
+
+        function deleteProduct(index) {
+            const deletedId = products[index].id;
+            products.splice(index, 1);
+            cart = cart.filter(item => item.id !== deletedId);
+            
+            saveProductsToStorage(); // ✨ 關鍵修正：刪除時徹底儲存到本地！
+            
+            renderAdminTable(); renderUserMenu(); updateCartUI(); updateAllSubmittedViews();
+        }
+
+        function resetDefaultMenu() {
+            if (confirm("確定要還原成初始的預設菜單嗎？（這會蓋掉您目前的商品清單）")) {
+                products = [...defaultProducts];
+                saveProductsToStorage();
+                renderAdminTable(); renderUserMenu(); updateAllSubmittedViews();
+            }
+        }
+
+        function renderUserMenu() {
+            const container = document.getElementById('product-list');
+            if(!container) return;
+            if (products.length === 0) {
+                container.innerHTML = `<p class="col-span-2 text-center py-8 text-slate-400">目前沒有餐點品項。</p>`;
+                return;
+            }
+            container.innerHTML = products.map(p => `
+                <div onclick="addToCart('${p.id}')" class="border border-slate-100 hover:border-teal-300 p-4 rounded-xl bg-white shadow-sm cursor-pointer transition hover:shadow flex justify-between items-center group">
+                    <div class="flex-1 min-w-0 pr-2">
+                        <span class="inline-block text-[10px] bg-teal-50 text-teal-600 px-2 py-0.5 rounded font-bold mb-1">${p.id}</span>
+                        <h3 class="font-medium text-slate-800 group-hover:text-teal-600 text-sm truncate">${p.name}</h3>
+                        <p class="text-sm font-bold text-slate-700 mt-1">$${p.price}</p>
+                    </div>
+                    <span class="text-xs bg-slate-50 group-hover:bg-teal-500 text-slate-500 group-hover:text-white px-2.5 py-1.5 rounded-lg transition font-medium shrink-0">+ 點餐</span>
+                </div>
+            `).join('');
+        }
+
+        function addToCart(productId) {
+            const product = products.find(p => p.id === productId);
+            if (!product) return;
+            cart.push({ uniqueId: Date.now() + Math.random(), id: product.id, name: product.name, price: product.price, note: "" });
+            updateCartUI();
+        }
+
+        function removeFromCart(uniqueId) {
+            cart = cart.filter(item => item.uniqueId !== uniqueId);
+            updateCartUI();
+        }
+
+        function updateNote(uniqueId, text) {
+            const item = cart.find(item => item.uniqueId === uniqueId);
+            if (item) item.note = text.trim();
+        }
+
+        function updateCartUI() {
+            const cartContainer = document.getElementById('cart-items');
+            if(!cartContainer) return;
+            document.getElementById('item-count').innerText = `${cart.length} 項商品`;
+            if (cart.length === 0) {
+                cartContainer.innerHTML = `<p class="text-center py-12">請點擊左側餐點加入清單</p>`;
+                document.getElementById('total-amount').innerText = "$0";
+                return;
+            }
+            let total = 0; let html = '';
+            cart.forEach(item => {
+                const currentProd = products.find(p => p.id === item.id);
+                const price = currentProd ? currentProd.price : item.price;
+                total += price;
+                html += `
+                    <div class="bg-slate-50 p-3 rounded-xl border border-slate-100 text-slate-700 space-y-2" onclick="event.stopPropagation();">
+                        <div class="flex justify-between items-start">
+                            <div class="min-w-0 flex-1">
+                                <p class="font-medium text-xs truncate"><span class="text-teal-600 font-bold">[${item.id}]</span> ${currentProd ? currentProd.name : item.name}</p>
+                                <p class="text-[11px] text-slate-400">$${price}</p>
+                            </div>
+                            <button onclick="removeFromCart(${item.uniqueId})" class="text-xs text-rose-500 hover:underline ml-2 shrink-0">刪除</button>
+                        </div>
+                        <input type="text" onchange="updateNote(${item.uniqueId}, this.value)" value="${item.note}" class="w-full bg-white px-2 py-1 text-xs border border-slate-200 rounded" placeholder="備註：甜度冰塊/不加蔥...">
+                    </div>`;
+            });
+            cartContainer.innerHTML = html;
+            document.getElementById('total-amount').innerText = `$${total}`;
+        }
+
+        function submitOrderToList() {
+            const name = document.getElementById('buyer-name').value.trim();
+            if (!name) { alert('請填寫點餐人姓名！'); return; }
+            if (cart.length === 0) { alert('點餐清單是空的！'); return; }
+            allSubmittedOrders.push({ orderId: 'ORD-' + Date.now(), buyer: name, items: JSON.parse(JSON.stringify(cart)) });
+            saveOrdersToStorage(); // 同步硬碟保存
+            updateAllSubmittedViews(); cart = []; document.getElementById('buyer-name').value = ""; updateCartUI();
+            alert(`✨ ${name} 的餐點已成功加入明細！`);
+        }
+
+        function deleteSubmittedOrder(orderId, buyerName) {
+            if (confirm(`確定要將【${buyerName}】的點餐紀錄刪除嗎？`)) {
+                allSubmittedOrders = allSubmittedOrders.filter(order => order.orderId !== orderId);
+                saveOrdersToStorage(); // 同步硬碟保存
+                updateAllSubmittedViews();
+            }
+        }
+
+        function updateAllSubmittedViews() { renderVisualOrderList(); generateAllOrdersText(); calculateFullSummary(); }
+
+        function renderVisualOrderList() {
+            const tbody = document.getElementById('visual-order-list');
+            if(!tbody) return;
+            if (allSubmittedOrders.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" class="text-center py-8 text-slate-400 italic">目前尚無點單紀錄</td></tr>`;
+                return;
+            }
+            tbody.innerHTML = allSubmittedOrders.map(order => {
+                let userTotal = 0;
+                let detailStrings = order.items.map(item => {
+                    const cp = products.find(p => p.id === item.id);
+                    userTotal += cp ? cp.price : item.price;
+                    return `${cp ? cp.name : item.name}${item.note ? `(${item.note})` : ''}`;
+                });
+                return `
+                    <tr class="hover:bg-slate-50 text-slate-700 text-xs">
+                        <td class="py-3 px-4 font-bold">${order.buyer}</td>
+                        <td class="py-3 px-4 truncate max-w-xs">${detailStrings.join('、 ')}</td>
+                        <td class="py-3 px-4 text-center">${order.items.length} 件</td>
+                        <td class="py-3 px-4 text-right font-bold text-teal-600">$${userTotal}</td>
+                        <td class="py-3 px-4 text-center"><button onclick="deleteSubmittedOrder('${order.orderId}', '${order.buyer}')" class="text-rose-600 hover:underline font-medium cursor-pointer">❌ 刪除</button></td>
+                    </tr>`;
+            }).join('');
+        }
+
+        function generateAllOrdersText() {
+            const sect = document.getElementById('result-section');
+            if(!sect) return;
+            if (allSubmittedOrders.length === 0) { sect.classList.add('hidden'); return; }
+            let textRows = [`=================================`, `🍱 點餐團購系統 · 【${merchantName}】登記總名冊 📋`, `=================================`];
+            let grandTotal = 0;
+            allSubmittedOrders.forEach((order) => {
+                let userTotal = 0; textRows.push(`👤 點餐人【${order.buyer}】`);
+                order.items.forEach((item, idx) => {
+                    const cp = products.find(p => p.id === item.id); const price = cp ? cp.price : item.price;
+                    userTotal += price; grandTotal += price;
+                    textRows.push(`   ${idx + 1}. ${cp ? cp.name : item.name}${item.note ? ` (${item.note})` : ''} - $${price}`);
+                });
+                textRows.push(`   👉 個人小計：$${userTotal}\n---------------------------------`);
+            });
+            textRows.push(`統計：共 ${allSubmittedOrders.length} 人登記 | 💰 總金額：$${grandTotal}`, `=================================`);
+            document.getElementById('order-text').value = textRows.join('\n');
+            sect.classList.remove('hidden');
+        }
+
+        function calculateFullSummary() {
+            let summaryMap = {}; products.forEach(p => summaryMap[p.id] = { name: p.name, price: p.price, totalQty: 0, notes: [] });
+            let grandTotalItems = 0; let grandTotalMoney = 0; let buyersSet = new Set();
+            allSubmittedOrders.forEach(order => {
+                buyersSet.add(order.buyer);
+                order.items.forEach(item => {
+                    grandTotalItems++; if (!summaryMap[item.id]) return;
+                    summaryMap[item.id].totalQty++; if (item.note) summaryMap[item.id].notes.push(`${order.buyer}: ${item.note}`);
+                });
+            });
+            document.getElementById('summary-orders-count').innerText = `${allSubmittedOrders.length} 筆`;
+            document.getElementById('summary-items-count').innerText = `${grandTotalItems} 件`;
+            Object.keys(summaryMap).forEach(id => grandTotalMoney += summaryMap[id].totalQty * summaryMap[id].price);
+            document.getElementById('summary-total-money').innerText = `$${grandTotalMoney}`;
+
+            const tbody = document.getElementById('summary-table-rows');
+            if(tbody) {
+                tbody.innerHTML = products.map(p => {
+                    const data = summaryMap[p.id] || { totalQty: 0, notes: [] };
+                    return `
+                        <tr class="hover:bg-slate-800/30 text-xs">
+                            <td class="py-3 px-3 font-mono text-amber-400 font-bold">${p.id}</td>
+                            <td class="py-3 px-3"><div class="text-slate-200">${p.name}</div>${data.notes.length > 0 ? `<div class="text-[10px] text-amber-300/70 bg-slate-800/40 px-2 py-0.5 rounded mt-1">${data.notes.map(n=>`<div>• ${n}</div>`).join('')}</div>`:''}</td>
+                            <td class="py-3 px-3 text-center font-bold ${data.totalQty > 0 ? 'text-teal-400' : 'text-slate-600'}">${data.totalQty}</td>
+                            <td class="py-3 px-3 text-right font-mono text-slate-300">$${data.totalQty * p.price}</td>
+                        </tr>`;
+                }).join('');
+            }
+            
+            const nameContainer = document.getElementById('summary-buyer-list');
+            if(nameContainer) {
+                nameContainer.innerHTML = buyersSet.size === 0 ? `<span class="text-slate-500 italic">暫無人登記點餐...</span>` : Array.from(buyersSet).map(b => `<span class="bg-slate-800 text-slate-300 px-2 py-0.5 rounded border border-slate-700">${b}</span>`).join('');
+            }
+        }
+
+        function copySummaryText() {
+            if (allSubmittedOrders.length === 0) return;
+            let textRows = [`====================`, `📦 團購【${merchantName}】叫餐總統計單`, `====================`];
+            products.forEach(p => {
+                let qty = 0; let notes = [];
+                allSubmittedOrders.forEach(o => o.items.forEach(i => { if (i.id === p.id) { qty++; if (i.note) notes.push(`${o.buyer}(${i.note})`); } }));
+                if (qty > 0) textRows.push(`🔹 [${p.id}] ${p.name} x ${qty} 件 (小計: $${qty * p.price})${notes.length > 0 ? `\n   ↳ 規格備註: ${notes.join(', ')}` : ''}`);
+            });
+            const dummy = document.createElement("textarea"); document.body.appendChild(dummy); dummy.value = textRows.join('\n'); dummy.select(); document.execCommand("copy"); document.body.removeChild(dummy);
+            alert(`📋 叫餐明細已複製！`);
+        }
+
+        // ==========================================
+        // 📥 二維碼後台管理
+        // ==========================================
+        function renderQrUploadForm() {
+            const dropzone = document.getElementById('draft-dropzone');
+            if(!dropzone) return;
+            if (draftQrImg) {
+                dropzone.innerHTML = `
+                    <div class="w-full flex flex-col items-center justify-center space-y-2 pointer-events-none">
+                        <img class="max-h-[120px] max-w-full object-contain rounded border border-slate-200 p-1 bg-slate-50 shadow-sm" src="${draftQrImg}" alt="預覽圖片">
+                        <button type="button" onclick="clearDraftImg(event)" class="text-rose-600 text-[10px] hover:underline font-bold cursor-pointer transition pointer-events-auto">✕ 取消選擇</button>
+                    </div>
+                `;
+                dropzone.className = "min-h-[140px] border-2 border-dashed border-emerald-300 bg-emerald-50/20 rounded-lg p-3 flex flex-col justify-center items-center text-center cursor-pointer relative transition";
+            } else {
+                dropzone.innerHTML = `
+                    <div class="space-y-1 pointer-events-none">
+                        <div class="text-3xl text-slate-300 mb-2">📥</div>
+                        <p class="text-xs font-bold text-slate-500">將二維碼圖片拖曳至此</p>
+                        <p class="text-[9px] text-slate-400">（或點擊手動選取檔案）</p>
+                    </div>
+                `;
+                dropzone.className = "min-h-[140px] border-2 border-dashed border-slate-300 hover:border-teal-400 bg-white rounded-lg p-3 flex flex-col justify-center items-center text-center cursor-pointer relative transition";
+            }
+        }
+
+        function handleInlineDragOver(e, element) {
+            e.preventDefault(); e.stopPropagation();
+            element.classList.remove('border-slate-300', 'bg-white');
+            element.classList.add('border-teal-500', 'bg-teal-50/40');
+        }
+
+        function handleInlineDragLeave(e, element) {
+            e.preventDefault(); e.stopPropagation();
+            element.classList.remove('border-teal-500', 'bg-teal-50/40');
+            element.classList.add('border-slate-300', 'bg-white');
+        }
+
+        function handleInlineDrop(e, element) {
+            e.preventDefault(); e.stopPropagation();
+            element.classList.remove('border-teal-500', 'bg-teal-50/40');
+            element.classList.add('border-slate-300');
+            const dt = e.dataTransfer;
+            if (dt && dt.files && dt.files.length > 0) { processDraftFile(dt.files[0]); }
+        }
+
+        function handleDraftFile(inputElement) {
+            if (inputElement.files && inputElement.files[0]) { processDraftFile(inputElement.files[0]); }
+            inputElement.value = ''; 
+        }
+
+        function processDraftFile(file) {
+            if (!file.type.startsWith('image/')) { alert('錯誤：請上傳圖片檔案！'); return; }
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = function() {
+                draftQrImg = reader.result;
+                renderQrUploadForm();
+            }
+        }
+
+        function clearDraftImg(e) {
+            e.preventDefault(); e.stopPropagation();
+            draftQrImg = "";
+            renderQrUploadForm();
+        }
+
+        function saveDraftQr() {
+            if (!draftQrImg) { alert('請先拖入或選擇二維碼圖片！'); return; }
+            let name = document.getElementById('draft-qr-name').value.trim();
+            if (!name) name = "主揪小明 (LINE Pay)"; 
+            
+            qrCollectors.push({ id: 'coll-' + Date.now(), name: name, imgData: draftQrImg, isSaved: true });
+            saveQrCollectorsToStorage();
+            
+            draftQrImg = "";
+            document.getElementById('draft-qr-name').value = "";
+            
+            renderQrUploadForm();
+            renderSavedQrList();
+            renderQrShowcaseWall();
+        }
+
+        function renderSavedQrList() {
+            const container = document.getElementById('saved-qr-list');
+            if(!container) return;
+            if (qrCollectors.length === 0) {
+                container.innerHTML = `<p class="text-[11px] text-slate-400 italic text-center py-4">尚無發佈紀錄，請由左方新增</p>`;
+                return;
+            }
+            container.innerHTML = qrCollectors.map(c => `
+                <div class="flex justify-between items-center bg-white border border-slate-200 p-2.5 rounded-lg shadow-sm">
+                    <span class="text-[11px] font-bold text-slate-600 truncate mr-2">${c.name}</span>
+                    <button onclick="deleteQrCollector('${c.id}')" class="text-rose-500 hover:text-white hover:bg-rose-500 border border-rose-100 text-[10px] cursor-pointer font-bold px-2 py-1 rounded transition shrink-0">
+                        刪除
+                    </button>
+                </div>
+            `).join('');
+        }
+
+        function deleteQrCollector(id) {
+            if (confirm("確定要將這個收款項目刪除嗎？這將會同步從右側大看板移除！")) {
+                qrCollectors = qrCollectors.filter(c => c.id !== id);
+                saveQrCollectorsToStorage(); 
+                renderSavedQrList();
+                renderQrShowcaseWall(); 
+            }
+        }
+
+        // ==========================================
+        // 📱 全員公開二維碼收款牆展示看板 
+        // ==========================================
+        function renderQrShowcaseWall() {
+            const wallContainer = document.getElementById('qr-showcase-display-wall');
+            if(!wallContainer) return;
+            if (qrCollectors.length === 0) {
+                wallContainer.innerHTML = `
+                    <div class="flex flex-col items-center justify-center py-20 text-center text-slate-400 border border-dashed border-indigo-100 rounded-xl bg-white/60 p-4">
+                        <div class="text-3xl mb-2">📸</div>
+                        <p class="text-sm font-bold text-indigo-900/60">目前暫無收款條碼</p>
+                        <p class="text-xs text-slate-400 mt-1">主揪上傳完成後，條碼會立即在這裡展示！</p>
+                    </div>`;
+                return;
+            }
+
+            wallContainer.innerHTML = qrCollectors.map(collector => `
+                <div class="bg-white p-4 rounded-xl border border-indigo-100 shadow-sm flex flex-col items-center space-y-3 transition transform hover:scale-105">
+                    <div class="w-full border-b border-slate-100 pb-2 text-center">
+                        <span class="bg-indigo-600 text-white text-xs font-bold px-3 py-1 rounded-full shadow-sm">
+                            💰 ${collector.name}
+                        </span>
+                    </div>
+                    
+                    <div class="relative group bg-slate-50 p-2 rounded-lg border border-slate-100 max-w-[220px] cursor-pointer" onclick="openImageModal(this.querySelector('img').src)" title="點擊全螢幕放大">
+                        <img class="w-full h-auto object-contain rounded shadow-sm transition group-hover:opacity-60" src="${collector.imgData}" alt="收款二維碼">
+                        
+                        <div class="absolute inset-0 bg-indigo-900/0 group-hover:bg-indigo-900/10 flex items-center justify-center rounded-lg transition duration-200">
+                            <span class="text-white opacity-0 group-hover:opacity-100 font-bold text-sm bg-indigo-900/70 px-4 py-2 rounded-full backdrop-blur-sm pointer-events-none transition duration-200 shadow-lg">
+                                🔍 點擊放大
+                            </span>
+                        </div>
+                    </div>
+
+                    <p class="text-[10px] text-emerald-600 font-bold flex items-center gap-1 pointer-events-none">
+                        ✓ 系統已即時雲端同步
+                    </p>
+                </div>
+            `).join('');
+        }
+
+        function clearAllOrders() {
+            if (confirm("確定要清空全團點餐數據嗎？")) {
+                allSubmittedOrders = []; 
+                saveOrdersToStorage(); // 同步清除快取
+                updateAllSubmittedViews();
+                document.getElementById('order-text').value = ""; 
+                document.getElementById('result-section').classList.add('hidden');
+            }
+        }
+
+        function copyToClipboard(elementId, successMessage) {
+            const textarea = document.getElementById(elementId);
+            if(!textarea) return;
+            textarea.select();
+            document.execCommand('copy');
+            alert(successMessage);
+        }
+    </script>
+</body>
+</html>
